@@ -29,6 +29,7 @@ if cam.login():
 else:
 	print("Failure. Could not connect.")
 
+print("System info:", cam.get(""))
 time = cam.get_time()
 print("Camera time:", time)
 
@@ -88,6 +89,10 @@ colors = cam.get_info("AVEnc.VideoColor.[0]")
 
 # Change IR Cut
 cam.set_info("Camera.Param.[0]", { "IrcutSwap" : 0 })
+
+# Change WDR settings
+WDR = 1  # 1 to enable or 0 to disable
+cam.set_info("Camera.ParamEx.[0]", { "BroadTrends" : { "AutoGain" : WDR } })
 
 # Get network settings
 net = cam.get_info("NetWork.NetCommon")
