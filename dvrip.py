@@ -31,6 +31,8 @@ class DVRIPCam(object):
         515: "Upgrade successful",
     }
     QCODES = {
+        "SystemInfo": 1020,
+        "General": 1042,
         "AlarmInfo": 1504,
         "AlarmSet": 1500,
         "KeepAlive": 1006,
@@ -95,7 +97,7 @@ class DVRIPCam(object):
         start_time = time.time()
 
         while True:
-            data = self.socket.recv(length-received)
+            data = self.socket.recv(length - received)
             buf.extend(data)
             received += len(data)
             if length == received:
@@ -116,7 +118,8 @@ class DVRIPCam(object):
         self.busy.acquire()
         if hasattr(data, "__iter__"):
             data = bytes(json.dumps(data, ensure_ascii=False), "utf-8")
-        pkt = struct.pack(
+        pkt = (
+            struct.pack(
                 "BB2xII2xHI",
                 255,
                 0,
@@ -124,7 +127,10 @@ class DVRIPCam(object):
                 self.packet_count,
                 msg,
                 len(data) + 2,
-            ) + data + b"\x0a\x00"
+            )
+            + data
+            + b"\x0a\x00"
+        )
         self.logger.debug("=> %s", pkt)
         self.socket.send(pkt)
         reply = {"Ret": 101}
@@ -198,9 +204,6 @@ class DVRIPCam(object):
         self.set(self.QCODES["OPMachine"], "OPMachine", {"Action": "Reboot"})
         self.close()
 
-    def pretty_print(self, data):
-        print(json.dumps(data, indent=4, sort_keys=True))
-
     def setAlarm(self, func):
         self.alarm_func = func
 
@@ -214,7 +217,7 @@ class DVRIPCam(object):
             args=[self.busy],
         )
         self.alarm.start()
-        return self.get(self.QCODES["AlarmSet"], "")
+        return self.get_command("", self.QCODES["AlarmSet"])
 
     def alarm_thread(self, event):
         while True:
@@ -317,15 +320,21 @@ class DVRIPCam(object):
     def set_info(self, command, data):
         return self.set(1040, command, data)
 
-    def set(self, code, command, data):
+    def set_command(self, command, data, code=None):
+        if not code:
+            code = self.QCODES[command]
+
         return self.send(
             code, {"Name": command, "SessionID": "0x%08X" % self.session, command: data}
         )
 
     def get_info(self, command):
-        return self.get(1042, command)
+        return self.get_command(command, 1042)
 
-    def get(self, code, command):
+    def get_command(self, command, code=None):
+        if not code:
+            code = self.QCODES[command]
+
         data = self.send(code, {"Name": command, "SessionID": "0x%08X" % self.session})
         if data["Ret"] in self.OK_CODES and command in data:
             return data[command]
@@ -333,54 +342,44 @@ class DVRIPCam(object):
             return data
 
     def get_time(self):
-        return datetime.strptime(
-            self.get(self.QCODES["OPTimeQuery"], "OPTimeQuery"), self.DATE_FORMAT
-        )
+        return datetime.strptime(self.get_command("OPTimeQuery"), self.DATE_FORMAT)
 
     def set_time(self, time=None):
         if time == None:
             time = datetime.now()
-        return self.set(
-            self.QCODES["OPTimeSetting"],
-            "OPTimeSetting",
-            time.strftime(self.DATE_FORMAT),
-        )
+        return self.set_command("OPTimeSetting", time.strftime(self.DATE_FORMAT),)
 
     def get_system_info(self):
-        return self.get(0x3fc, "SystemInfo")
+        return self.get_command("SystemInfo")
 
     def get_general_info(self):
-        return self.get(1042, "General")
+        return self.get_command("General")
 
     def get_encode_capabilities(self):
-        return self.get(self.QCODES["EncodeCapability"], "EncodeCapability")
+        return self.get_command("EncodeCapability")
 
     def get_system_capabilities(self):
-        return self.get(self.QCODES["SystemFunction"], "SystemFunction")
+        return self.get_command("SystemFunction")
 
-    def get_camera_info(self, default=False):
+    def get_camera_info(self, default_config=False):
         """Request data for 'Camera' from  the target DVRIP device."""
-        if default:
+        if default_config:
             code = 1044
         else:
             code = 1042
-        data = self.get_info(code, "Camera")
-        self.pretty_print(data)
+        return self.get_info(code, "Camera")
 
-    def get_encode_info(self, default=False):
+    def get_encode_info(self, default_config=False):
         """Request data for 'Simplify.Encode' from the target DVRIP device.
 
             Arguments:
-            default -- returns the default values for the type if True
+            default_config -- returns the default values for the type if True
         """
-
-        if default:
+        if default_config:
             code = 1044
         else:
             code = 1042
-
-        data = self.get_info(code, "Simplify.Encode")
-        self.pretty_print(data)
+        return self.get_info(code, "Simplify.Encode")
 
     def recv_json(self, buf=bytearray()):
         p = re.compile(b".*({.*})")
@@ -397,13 +396,13 @@ class DVRIPCam(object):
         return json.loads(m.group(1)), buf
 
     def get_upgrade_info(self):
-        return self.get(self.QCODES["OPSystemUpgrade"], "OPSystemUpgrade")
+        return self.get_command("OPSystemUpgrade")
 
     def upgrade(self, filename="", packetsize=0x8000, vprint=None):
         if not vprint:
             vprint = lambda x: print(x)
 
-        data = self.set(0x5F0, "OPSystemUpgrade", {"Action": "Start", "Type": "System"})
+        data = self.set_command("OPSystemUpgrade", {"Action": "Start", "Type": "System"}, 0x5F0)
         if data["Ret"] not in self.OK_CODES:
             return data
 
