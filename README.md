@@ -29,9 +29,7 @@ if cam.login():
 else:
 	print("Failure. Could not connect.")
 
-print("System info:", cam.get(""))
-time = cam.get_time()
-print("Camera time:", time)
+print("Camera time:", cam.get_time())
 
 # Reboot camera
 cam.reboot()
@@ -41,10 +39,131 @@ sleep(60) # wait while camera starts
 cam.login()
 # Sync camera time with PC time
 cam.set_time()
+# Disconnect
 cam.close()
 ```
 
-## Camera modes/settings
+## Camera settings
+
+```python
+params = cam.get_general_info()
+```
+
+Returns general camera information (timezones, formats, auto reboot policy,
+security options):
+
+```json
+{
+    "AppBindFlag": {
+        "BeBinded": false
+    },
+    "AutoMaintain": {
+        "AutoDeleteFilesDays": 0,
+        "AutoRebootDay": "Tuesday",
+        "AutoRebootHour": 3
+    },
+    "DSTState": {
+        "InNormalState": true
+    },
+    "General": {
+        "AutoLogout": 0,
+        "FontSize": 24,
+        "IranCalendarEnable": 0,
+        "LocalNo": 0,
+        "MachineName": "LocalHost",
+        "OverWrite": "OverWrite",
+        "ScreenAutoShutdown": 10,
+        "ScreenSaveTime": 0,
+        "VideoOutPut": "Auto"
+    },
+    "Location": {
+        "DSTEnd": {
+            "Day": 1,
+            "Hour": 1,
+            "Minute": 1,
+            "Month": 10,
+            "Week": 0,
+            "Year": 2021
+        },
+        "DSTRule": "Off",
+        "DSTStart": {
+            "Day": 1,
+            "Hour": 1,
+            "Minute": 1,
+            "Month": 5,
+            "Week": 0,
+            "Year": 2021
+        },
+        "DateFormat": "YYMMDD",
+        "DateSeparator": "-",
+        "IranCalendar": 0,
+        "Language": "Russian",
+        "TimeFormat": "24",
+        "VideoFormat": "PAL",
+        "Week": null,
+        "WorkDay": 62
+    },
+    "OneKeyMaskVideo": null,
+    "PwdSafety": {
+        "PwdReset": [
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            },
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            },
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            },
+            {
+                "QuestionAnswer": "",
+                "QuestionIndex": 0
+            }
+        ],
+        "SecurityEmail": "",
+        "TipPageHide": false
+    },
+    "ResumePtzState": null,
+    "TimingSleep": null
+}
+```
+
+```python
+params = cam.get_system_info()
+```
+
+Returns hardware specific settings, camera serial number, current software
+version and firmware type:
+
+```json
+{
+    "AlarmInChannel": 2,
+    "AlarmOutChannel": 1,
+    "AudioInChannel": 1,
+    "BuildTime": "2020-01-08 11:05:18",
+    "CombineSwitch": 0,
+    "DeviceModel": "HI3516EV300_85H50AI",
+    "DeviceRunTime": "0x0001f532",
+    "DigChannel": 0,
+    "EncryptVersion": "Unknown",
+    "ExtraChannel": 0,
+    "HardWare": "HI3516EV300_85H50AI",
+    "HardWareVersion": "Unknown",
+    "SerialNo": "a166379674a3b447",
+    "SoftWareVersion": "V5.00.R02.000529B2.10010.040600.0020000",
+    "TalkInChannel": 1,
+    "TalkOutChannel": 1,
+    "UpdataTime": "",
+    "UpdataType": "0x00000000",
+    "VideoInChannel": 1,
+    "VideoOutChannel": 1
+}
+```
+
+## Camera video settings/modes
 
 ```python
 params = cam.get_info("Camera")

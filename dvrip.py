@@ -351,6 +351,10 @@ class DVRIPCam(object):
         )
 
     def get_system_info(self):
+        data = self.get(0x3fc, "SystemInfo")
+        self.pretty_print(data)
+
+    def get_general_info(self):
         data = self.get(1042, "General")
         self.pretty_print(data)
 
