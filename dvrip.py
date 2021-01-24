@@ -128,20 +128,16 @@ class DVRIPCam(object):
         self.logger.debug("=> %s", pkt)
         self.socket.send(pkt)
         reply = {"Ret": 101}
-        try:
-            (
-                head,
-                version,
-                self.session,
-                sequence_number,
-                msgid,
-                len_data,
-            ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
-            reply = self.receive_json(len_data)
-        except:
-            pass
-        finally:
-            self.busy.release()
+        (
+            head,
+            version,
+            self.session,
+            sequence_number,
+            msgid,
+            len_data,
+        ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
+        reply = self.receive_json(len_data)
+        self.busy.release()
         return reply
 
     def sofia_hash(self, password):
@@ -351,20 +347,16 @@ class DVRIPCam(object):
         )
 
     def get_system_info(self):
-        data = self.get(0x3fc, "SystemInfo")
-        self.pretty_print(data)
+        return self.get(0x3fc, "SystemInfo")
 
     def get_general_info(self):
-        data = self.get(1042, "General")
-        self.pretty_print(data)
+        return self.get(1042, "General")
 
     def get_encode_capabilities(self):
-        data = self.get(self.QCODES["EncodeCapability"], "EncodeCapability")
-        self.pretty_print(data)
+        return self.get(self.QCODES["EncodeCapability"], "EncodeCapability")
 
     def get_system_capabilities(self):
-        data = self.get(self.QCODES["SystemFunction"], "SystemFunction")
-        self.pretty_print(data)
+        return self.get(self.QCODES["SystemFunction"], "SystemFunction")
 
     def get_camera_info(self, default=False):
         """Request data for 'Camera' from  the target DVRIP device."""

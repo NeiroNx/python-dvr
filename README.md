@@ -163,6 +163,140 @@ version and firmware type:
 }
 ```
 
+```python
+params = cam.get_system_capabilities()
+```
+
+Returns capabilities for the camera software (alarms and detection,
+communication protocols and hardware specific features):
+
+```json
+{
+    "AlarmFunction": {
+        "AlarmConfig": true,
+        "BlindDetect": true,
+        "HumanDection": true,
+        "HumanPedDetection": true,
+        "LossDetect": true,
+        "MotionDetect": true,
+        "NetAbort": true,
+        "NetAlarm": true,
+        "NetIpConflict": true,
+        "NewVideoAnalyze": false,
+        "PEAInHumanPed": true,
+        "StorageFailure": true,
+        "StorageLowSpace": true,
+        "StorageNotExist": true,
+        "VideoAnalyze": false
+    },
+    "CommFunction": {
+        "CommRS232": true,
+        "CommRS485": true
+    },
+    "EncodeFunction": {
+        "DoubleStream": true,
+        "SmartH264": true,
+        "SmartH264V2": false,
+        "SnapStream": true
+    },
+    "NetServerFunction": {
+        "IPAdaptive": true,
+        "Net3G": false,
+        "Net4GSignalLevel": false,
+        "NetAlarmCenter": true,
+        "NetDAS": false,
+        "NetDDNS": false,
+        "NetDHCP": true,
+        "NetDNS": true,
+        "NetEmail": true,
+        "NetFTP": true,
+        "NetIPFilter": true,
+        "NetMutlicast": false,
+        "NetNTP": true,
+        "NetNat": true,
+        "NetPMS": true,
+        "NetPMSV2": true,
+        "NetPPPoE": false,
+        "NetRTSP": true,
+        "NetSPVMN": false,
+        "NetUPNP": true,
+        "NetWifi": false,
+        "OnvifPwdCheckout": true,
+        "RTMP": false,
+        "WifiModeSwitch": false,
+        "WifiRouteSignalLevel": true
+    },
+    "OtherFunction": {
+        "NOHDDRECORD": false,
+        "NoSupportSafetyQuestion": false,
+        "NotSupportAutoAndIntelligent": false,
+        "SupportAdminContactInfo": true,
+        "SupportAlarmRemoteCall": false,
+        "SupportAlarmVoiceTipInterval": true,
+        "SupportAlarmVoiceTips": true,
+        "SupportAlarmVoiceTipsType": true,
+        "SupportAppBindFlag": true,
+        "SupportBT": true,
+        "SupportBallTelescopic": false,
+        "SupportBoxCameraBulb": false,
+        "SupportCamareStyle": true,
+        "SupportCameraWhiteLight": false,
+        "SupportCfgCloudupgrade": true,
+        "SupportChangeLanguageNoReboot": true,
+        "SupportCloseVoiceTip": false,
+        "SupportCloudUpgrade": true,
+        "SupportCommDataUpload": true,
+        "SupportCorridorMode": false,
+        "SupportCustomizeLpRect": false,
+        "SupportDNChangeByImage": false,
+        "SupportDimenCode": true,
+        "SupportDoubleLightBoxCamera": false,
+        "SupportDoubleLightBulb": false,
+        "SupportElectronicPTZ": false,
+        "SupportFTPTest": true,
+        "SupportFaceDetectV2": false,
+        "SupportFaceRecognition": false,
+        "SupportMailTest": true,
+        "SupportMusicBulb433Pair": false,
+        "SupportMusicLightBulb": false,
+        "SupportNetWorkMode": false,
+        "SupportOSDInfo": false,
+        "SupportOneKeyMaskVideo": false,
+        "SupportPCSetDoubleLight": true,
+        "SupportPTZDirectionControl": false,
+        "SupportPTZTour": false,
+        "SupportPWDSafety": true,
+        "SupportParkingGuide": false,
+        "SupportPtz360Spin": false,
+        "SupportRPSVideo": false,
+        "SupportSetBrightness": false,
+        "SupportSetDetectTrackWatchPoint": false,
+        "SupportSetHardwareAbility": false,
+        "SupportSetPTZPresetAttribute": false,
+        "SupportSetVolume": true,
+        "SupportShowH265X": true,
+        "SupportSnapCfg": false,
+        "SupportSnapV2Stream": true,
+        "SupportSnapshotConfigV2": false,
+        "SupportSoftPhotosensitive": true,
+        "SupportStatusLed": false,
+        "SupportTextPassword": true,
+        "SupportTimeZone": true,
+        "SupportTimingSleep": false,
+        "SupportWebRTCModule": false,
+        "SupportWriteLog": true,
+        "SuppportChangeOnvifPort": true
+    },
+    "PreviewFunction": {
+        "Talk": true,
+        "Tour": false
+    },
+    "TipShow": {
+        "NoBeepTipShow": true
+    }
+}
+```
+
 ## Camera video settings/modes
 
 ```python
