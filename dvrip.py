@@ -118,7 +118,7 @@ class DVRIPCam(object):
             sleep(0.1)  # Just for recive whole packet
             reply = self.socket.recv(len_data)
             self.packet_count += 1
-            reply = json.loads(reply[:-2], encoding="utf-8")
+            reply = json.loads(reply[:-2])
         except:
             pass
         finally:
@@ -216,7 +216,7 @@ class DVRIPCam(object):
                 sleep(0.1)  # Just for recive whole packet
                 reply = self.socket.recv(len_data)
                 self.packet_count += 1
-                reply = json.loads(reply[:-2], encoding="utf8")
+                reply = json.loads(reply[:-2])
                 if msgid == self.QCODES["AlarmInfo"] and self.session == session:
                     if self.alarm_func != None:
                         self.alarm_func(reply[reply["Name"]], sequence_number)
@@ -355,9 +355,9 @@ class DVRIPCam(object):
     def get_encode_info(self, default=False):
         """Request data for 'Simplify.Encode' from the target DVRIP device.
 
-			Arguments:
-			default -- returns the default values for the type if True
-		"""
+            Arguments:
+            default -- returns the default values for the type if True
+        """
 
         if default:
             code = 1044
@@ -379,7 +379,7 @@ class DVRIPCam(object):
             print(buf)
             return None, buf
         buf = buf[m.span(1)[1] :]
-        return json.loads(m.group(1), encoding="utf-8"), buf
+        return json.loads(m.group(1)), buf
 
     def get_upgrade_info(self):
         return self.get(self.QCODES["OPSystemUpgrade"], "OPSystemUpgrade")
