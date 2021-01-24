@@ -21,9 +21,9 @@ https://gist.github.com/ekwoodrich/a6d7b8db8f82adf107c3c366e61fd36f
 from dvrip import DVRIPCam
 from time import sleep
 
-host_ip = '192.168.0.100'
+host_ip = '192.168.1.10'
 
-cam = DVRIPCam(host_ip, "admin", "")
+cam = DVRIPCam(host_ip, user="admin", password="")
 if cam.login():
 	print("Success! Connected to " + host_ip)
 else:
@@ -33,7 +33,7 @@ print("System info:", cam.get(""))
 time = cam.get_time()
 print("Camera time:", time)
 
-# Reboot test
+# Reboot camera
 cam.reboot()
 sleep(60) # wait while camera starts
 

@@ -9,6 +9,7 @@ from socket import *
 from datetime import *
 import re
 import time
+import logging
 
 
 class DVRIPCam(object):
@@ -62,6 +63,7 @@ class DVRIPCam(object):
     OK_CODES = [100, 515]
 
     def __init__(self, ip, user="admin", password="", port=34567):
+        self.logger = logging.getLogger(__name__)
         self.ip = ip
         self.user = user
         self.password = password
@@ -103,6 +105,7 @@ class DVRIPCam(object):
                 return {}
 
         self.packet_count += 1
+        self.logger.debug("<= %s", buf)
         reply = json.loads(buf[:-2])
         return reply
 
@@ -113,8 +116,7 @@ class DVRIPCam(object):
         self.busy.acquire()
         if hasattr(data, "__iter__"):
             data = bytes(json.dumps(data, ensure_ascii=False), "utf-8")
-        self.socket.send(
-            struct.pack(
+        pkt = struct.pack(
                 "BB2xII2xHI",
                 255,
                 0,
@@ -122,10 +124,9 @@ class DVRIPCam(object):
                 self.packet_count,
                 msg,
                 len(data) + 2,
-            )
-            + data
-            + b"\x0a\x00"
-        )
+            ) + data + b"\x0a\x00"
+        self.logger.debug("=> %s", pkt)
+        self.socket.send(pkt)
         reply = {"Ret": 101}
         try:
             (
