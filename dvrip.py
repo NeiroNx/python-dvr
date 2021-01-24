@@ -8,6 +8,7 @@ import threading
 from socket import *
 from datetime import *
 import re
+import time
 
 
 class DVRIPCam(object):
@@ -74,16 +75,36 @@ class DVRIPCam(object):
         self.alarm_func = None
         self.busy = threading.Condition()
 
-    def connect(self):
+    def connect(self, timeout=10):
         self.socket = socket(AF_INET, SOCK_STREAM)
         self.socket.connect((self.ip, self.port))
         # it's important to extend timeout for upgrade procedure
-        self.socket.settimeout(10)
+        self.timeout = timeout
+        self.socket.settimeout(timeout)
 
     def close(self):
         self.alive.cancel()
         self.socket.close()
         self.socket = None
+
+    def receive_json(self, length):
+        received = 0
+        buf = bytearray()
+        start_time = time.time()
+
+        while True:
+            data = self.socket.recv(length-received)
+            buf.extend(data)
+            received += len(data)
+            if length == received:
+                break
+            elapsed_time = time.time() - start_time
+            if elapsed_time > self.timeout:
+                return {}
+
+        self.packet_count += 1
+        reply = json.loads(buf[:-2])
+        return reply
 
     def send(self, msg, data):
         if self.socket == None:
@@ -115,10 +136,7 @@ class DVRIPCam(object):
                 msgid,
                 len_data,
             ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
-            sleep(0.1)  # Just for recive whole packet
-            reply = self.socket.recv(len_data)
-            self.packet_count += 1
-            reply = json.loads(reply[:-2])
+            reply = self.receive_json(len_data)
         except:
             pass
         finally:
