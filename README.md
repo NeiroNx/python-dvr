@@ -42,6 +42,18 @@ cam.set_time()
 # Disconnect
 cam.close()
 ```
+## OSD special text displaying
+```python
+info = cam.get_info("fVideo.OSDInfo")
+info["OSDInfo"][0]["Info"] = ["Test:","Temp: 26 C","Hum: 21 %"] #3 lines text
+info["OSDInfo"][0]["OSDInfoWidget"]["EncodeBlend"] = True
+info["OSDInfo"][0]["OSDInfoWidget"]["PreviewBlend"] = True
+info["OSDInfo"][0]["OSDInfoWidget"]["BackColor"]= '0x80000000'
+info["OSDInfo"][0]["OSDInfoWidget"]["FrontColor"]= '0xF0FFFF00'
+info["OSDInfo"][0]["OSDInfoWidget"]["RelativePos"] = [6144,6144,8192,8192] #OSD block position
+cam.set_info("fVideo.OSDInfo", info)
+```
+![screenshot](2020-05-24_08-16-03.png)
 
 ## Camera settings
 
@@ -357,6 +369,23 @@ cam.set_info("NetWork.NetCommon.HostName", "IVG-85HG50PYA-S")
 dhcpst = cam.get_info("NetWork.NetDHCP")
 dhcpst[0]['Enable'] = True
 cam.set_info("NetWork.NetDHCP", dhcpst)
+```
+## Add User and Change password
+```python
+#User "test2" with pssword "123123"
+cam.addUser("test2","123123")
+#Bad password, change it
+cam.changePasswd("321321",cam.sofia_hash("123123"),"test2")
+#And delete user "test2"
+if cam.delUser("test2"):
+    print("User deleted")
+else:
+    print("Can not delete it")
+#System users can not be deleted
+if cam.delUser("admin"):
+    print("You do it! How?")
+else:
+    print("It system reserved user")
 ```
 
 ## Get JPEG snapshot

@@ -32,6 +32,16 @@ class DVRIPCam(object):
         515: "Upgrade successful",
     }
     QCODES = {
+        "AuthorityList":1470,
+        "Users": 1472,
+        "Groups": 1474,
+        "AddGroup": 1476,
+        "ModifyGroup": 1478,
+        "DelGroup": 1480,
+        "AddUser": 1482,
+        "ModifyUser": 1484,
+        "DelUser":1486,
+        "ModifyPassword": 1488,
         "AlarmInfo": 1504,
         "AlarmSet": 1500,
         "ChannelTitle": 1046,
@@ -65,11 +75,11 @@ class DVRIPCam(object):
     }
     OK_CODES = [100, 515]
 
-    def __init__(self, ip, user="admin", password="", port=34567):
+    def __init__(self, ip, user="admin", password="", port=34567, hashPass=None):
         self.logger = logging.getLogger(__name__)
         self.ip = ip
         self.user = user
-        self.password = password
+        self.password = hashPass or self.sofia_hash(password)
         self.port = port
         self.socket = None
         self.packet_count = 0
@@ -154,12 +164,12 @@ class DVRIPCam(object):
             self.busy.release()
             return reply
 
-    def sofia_hash(self, password):
+    def sofia_hash(self, password=""):
         md5 = hashlib.md5(bytes(password, "utf-8")).digest()
         chars = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz"
         return "".join([chars[sum(x) % 62] for x in zip(md5[::2], md5[1::2])])
 
-    def login(self):
+    def login(self, hashPass=None):
         if self.socket == None:
             self.connect()
         data = self.send(
@@ -167,13 +177,148 @@ class DVRIPCam(object):
             {
                 "EncryptType": "MD5",
                 "LoginType": "DVRIP-Web",
-                "PassWord": self.sofia_hash(self.password),
+                "PassWord": hashPass or self.password,
                 "UserName": self.user,
             },
         )
         self.session = int(data["SessionID"], 16)
         self.alive_time = data["AliveInterval"]
         self.keep_alive()
+        return data["Ret"] in self.OK_CODES
+
+    def getAuthorityList(self):
+        data = self.send(self.QCODES["AuthorityList"])
+        if data["Ret"] in self.OK_CODES:
+            return data["AuthorityList"]
+        else:
+            return []
+
+    def getGroups(self):
+        data = self.send(self.QCODES["Groups"])
+        if data["Ret"] in self.OK_CODES:
+            return data["Groups"]
+        else:
+            return []
+
+    def addGroup(self,name,comment="",auth=None):
+        data = self.set(
+            self.QCODES["AddGroup"],
+            "Group",
+            {
+                "AuthorityList": auth or self.getAuthorityList(),
+                "Memo": comment,
+                "Name": name,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def modifyGroup(self,name,newname=None,comment=None,auth=None):
+        g = [x for x in self.getGroups() if x["Name"]==name]
+        if g==[]:
+            print(f'Group "{group}" not found!')
+            return False
+        g = g[0]
+        data = self.send(
+            self.QCODES["ModifyGroup"],
+            {
+                "Group" : {
+                    "AuthorityList" : auth or g["AuthorityList"],
+                    "Memo" : comment or g["Memo"],
+                    "Name" : newname or g["Name"],
+                },
+                "GroupName" : name,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def delGroup(self,name):
+        data = self.send(
+            self.QCODES["DelGroup"],
+            {
+                "Name" : name,
+                "SessionID" : "0x%08X" % self.session,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def getUsers(self):
+        data = self.send(self.QCODES["Users"])
+        if data["Ret"] in self.OK_CODES:
+            return data["Users"]
+        else:
+            return []
+
+    def addUser(self,name,password,comment="",group="user", auth=None,sharable=True):
+        g = [x for x in self.getGroups() if x["Name"]==group]
+        if g==[]:
+            print(f'Group "{group}" not found!')
+            return False
+        g = g[0]
+        data = self.set(
+            self.QCODES["AddUser"],
+            "User",
+            {
+                "AuthorityList" : auth or g["AuthorityList"],
+                "Group" : g["Name"],
+                "Memo" : comment,
+                "Name" : name,
+                "Password" : self.sofia_hash(password),
+                "Reserved" : False,
+                "Sharable" : sharable,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def modifyUser(self,name,newname=None,comment=None,group=None,auth=None,sharable=None):
+        u = [x for x in self.getUsers() if x["Name"]==name]
+        if u==[]:
+            print(f'User "{name}" not found!')
+            return False
+        u = u[0]
+        if group:
+            g = [x for x in self.getGroups() if x["Name"]==group]
+            if g==[]:
+                print(f'Group "{group}" not found!')
+                return False
+            u["AuthorityList"] = g[0]["AuthorityList"]
+        data = self.send(
+            self.QCODES["ModifyUser"],
+            { 
+                "User" : {
+                    "AuthorityList" : auth or u["AuthorityList"],
+                    "Group" : group or u["Group"],
+                    "Memo" : comment or u["Memo"],
+                    "Name" : newname or u["Name"],
+                    "Password" : "",
+                    "Reserved" : u["Reserved"], 
+                    "Sharable" : sharable or u["Sharable"],
+                },
+                "UserName" : name,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def delUser(self,name):
+        data = self.send(
+            self.QCODES["DelUser"],
+            {
+                "Name" : name,
+                "SessionID" : "0x%08X" % self.session,
+            },
+        )
+        return data["Ret"] in self.OK_CODES
+
+    def changePasswd(self,newpass="",oldpass=None,user=None):
+        data = self.send(
+            self.QCODES["ModifyPassword"],
+            {
+                "EncryptType" : "MD5",
+                "NewPassWord" : self.sofia_hash(newpass),
+                "PassWord" : oldpass or self.password,
+                "SessionID" : "0x%08X" % self.session,
+                "UserName" : user or self.user
+            },
+        )
         return data["Ret"] in self.OK_CODES
 
     def channel_title(self, titles):

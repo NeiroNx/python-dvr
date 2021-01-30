@@ -14,9 +14,11 @@ try:
     _ = str(b"ef", "ascii")
     _str = lambda x, y: str(x, y)
     _bytes = lambda x, y: bytes(x, y)
+    _input = lambda x="": input(x)
 except:
     _str = lambda x, y: x.decode(y)
     _bytes = lambda x, y: x.encode(y)
+    _input = lambda x="": raw_input(x)
 
 try:
     try:
@@ -892,6 +894,12 @@ class GUITk:
         )
 
         self.table.bind("<ButtonRelease>", self.select)
+        self.popup_menu = Menu(self.table, tearoff=0)
+        self.popup_menu.add_command(label="Copy SN",
+                                    command=lambda:(self.root.clipboard_clear() or self.root.clipboard_append(self.table.item(self.table.selection()[0], option="values")[6])) if len(self.table.selection())>0 else None)
+        self.popup_menu.add_command(label="Copy line",
+                                    command=lambda:(self.root.clipboard_clear() or self.root.clipboard_append("\t".join(self.table.item(self.table.selection()[0], option="values")[1:]))) if len(self.table.selection())>0 else None)
+        self.table.bind("<Button-3>", self.popup)
 
         self.l0 = Label(self.fr_config, text=_("Name"))
         self.l0.grid(row=0, column=0, pady=3, padx=5, sticky=W + N)
@@ -941,6 +949,12 @@ class GUITk:
         self.fl_state = StringVar(value=_("Flash"))
         self.fl = Button(self.fr_tools, textvar=self.fl_state, command=self.flash)
         self.fl.grid(row=0, column=5, pady=5, padx=5, sticky=W + N)
+
+    def popup(self, event):
+        try:
+            self.popup_menu.tk_popup(event.x_root, event.y_root, 0)
+        finally:
+            self.popup_menu.grab_release()
 
     def addr_pc(self):
         _addr, _mask, _gate = local_ip()
@@ -1112,7 +1126,7 @@ if __name__ == "__main__":
         sys.exit(1)
     print(_("Type help or ? to display help(q or quit to exit)"))
     while True:
-        data = raw_input("> ").split(";")
+        data = _input("> ").split(";")
         for cmd in data:
             result = ProcessCMD(cmd.split(" "))
             if hasattr(result, "keys") and "Ret" in result.keys():
