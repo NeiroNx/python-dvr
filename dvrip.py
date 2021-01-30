@@ -31,25 +31,25 @@ class DVRIPCam(object):
         515: "Upgrade successful",
     }
     QCODES = {
-        "SystemInfo": 1020,
-        "General": 1042,
         "AlarmInfo": 1504,
         "AlarmSet": 1500,
-        "KeepAlive": 1006,
         "ChannelTitle": 1046,
+        "EncodeCapability": 1360,
+        "General": 1042,
+        "KeepAlive": 1006,
+        "OPMachine": 1450,
+        "OPMailTest": 1636,
+        "OPMonitor": 1413,
+        "OPNetKeyboard": 1550,
+        "OPPTZControl": 1400,
+        "OPSNAP": 1560,
+        "OPSendFile": 0x5F2,
+        "OPSystemUpgrade": 0x5F5,
+        "OPTalk": 1434,
         "OPTimeQuery": 1452,
         "OPTimeSetting": 1450,
-        "OPMailTest": 1636,
-        # { "Name" : "OPMailTest", "OPMailTest" : { "Enable" : true, "MailServer" : { "Address" : "0x00000000", "Anonymity" : false, "Name" : "Your SMTP Server", "Password" : "", "Port" : 25, "UserName" : "" }, "Recievers" : [ "", "none", "none", "none", "none" ], "Schedule" : [ "0 00:00:00-24:00:00", "0 00:00:00-24:00:00" ], "SendAddr" : "", "Title" : "Alarm Message", "UseSSL" : false }, "SessionID" : "0x1" }
-        "OPMachine": 1450,
-        "OPMonitor": 1413,
-        "OPTalk": 1434,
-        "OPPTZControl": 1400,
-        "OPNetKeyboard": 1550,
         "SystemFunction": 1360,
-        "EncodeCapability": 1360,
-        "OPSystemUpgrade": 0x5F5,
-        "OPSendFile": 0x5F2,
+        "SystemInfo": 1020,
     }
     KEY_CODES = {
         "M": "Menu",
@@ -460,17 +460,8 @@ class DVRIPCam(object):
                 return data
             vprint(f"Upgraded {data['Ret']}%")
 
-        while True:
-            buf.extend(data)
-            received += len(data)
-            if length == received:
-                break
-            elapsed_time = time.time() - start_time
-            if elapsed_time > self.timeout:
-                return None
-        return buf
 
-    def reassemble_bin_recv(self):
+    def reassemble_bin_payload(self):
         length = 0
         buf = bytearray()
         start_time = time.time()
@@ -505,13 +496,34 @@ class DVRIPCam(object):
                 elif data_type == 0x1f9:
                     ( media, n, length ) = struct.unpack("BBH",
                                                          packet[4:frame_len])
+                # special case of JPEG shapshots
+                elif data_type == 0xffd8ffe0:
+                    return packet
                 else:
+                    print(hex(data_type))
                     raise ValueError(data_type)
             buf.extend(packet[frame_len:])
             length -= len(packet) - frame_len
             if length == 0:
                 print("Received ", len(buf))
                 return buf
+            elapsed_time = time.time() - start_time
+            if elapsed_time > self.timeout:
+                return None
+
+    def snapshot(self, channel = 0):
+        command = "OPSNAP"
+        self.send(
+            self.QCODES[command],
+            {
+                "Name": command,
+                "SessionID": "0x%08X" % self.session,
+                command: {"Channel": channel}
+            },
+            wait_response=False,
+        )
+        packet = self.reassemble_bin_payload()
+        return packet
 
 
     def monitor(self, stream="Main"):
@@ -524,7 +536,6 @@ class DVRIPCam(object):
         data = self.set_command("OPMonitor", {"Action": "Claim", "Parameter": params})
         if data["Ret"] not in self.OK_CODES:
             return data
-        print("1->", data)
 
         self.send(
             1410,
@@ -538,7 +549,7 @@ class DVRIPCam(object):
 
         with open("datacam.h265", "wb") as f:
             while True:
-                packet = self.reassemble_bin_recv()
+                packet = self.reassemble_bin_payload()
                 print(len(packet))
                 f.write(packet)
                 #print(head, version, session, sequence_number, msgid)
