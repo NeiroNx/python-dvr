@@ -460,6 +460,60 @@ class DVRIPCam(object):
                 return data
             vprint(f"Upgraded {data['Ret']}%")
 
+        while True:
+            buf.extend(data)
+            received += len(data)
+            if length == received:
+                break
+            elapsed_time = time.time() - start_time
+            if elapsed_time > self.timeout:
+                return None
+        return buf
+
+    def reassemble_bin_recv(self):
+        length = 0
+        buf = bytearray()
+        start_time = time.time()
+
+        while True:
+            (
+                head,
+                version,
+                session,
+                sequence_number,
+                total,
+                cur,
+                msgid,
+                len_data,
+            ) = struct.unpack("BB2xIIBBHI", self.socket.recv(20))
+            print(head, version, session, sequence_number, total, cur, msgid, len_data)
+            packet = self.receive_with_timeout(len_data)
+            frame_len = 0
+            if length == 0:
+                # Unpack
+                frame_len = 8
+                ( data_type, ) = struct.unpack(">I", packet[:4])
+                if data_type == 0x1fc or data_type == 0x1fe:
+                    frame_len = 16
+                    ( media, fps, w, h, date_time, length ) = struct.unpack(
+                        "BBBBII", packet[4:frame_len])
+                elif data_type == 0x1fd:
+                    ( length, ) = struct.unpack("I", packet[4:frame_len])
+                elif data_type == 0x1fa:
+                    ( media, samp_rate, length ) = struct.unpack("BBH",
+                                                                 packet[4:frame_len])
+                elif data_type == 0x1f9:
+                    ( media, n, length ) = struct.unpack("BBH",
+                                                         packet[4:frame_len])
+                else:
+                    raise ValueError(data_type)
+            buf.extend(packet[frame_len:])
+            length -= len(packet) - frame_len
+            if length == 0:
+                print("Received ", len(buf))
+                return buf
+
+
     def monitor(self, stream="Main"):
         params = {
             "Channel": 0,
@@ -482,36 +536,10 @@ class DVRIPCam(object):
             wait_response=False,
         )
 
-        with open("datacam", "wb") as f:
+        with open("datacam.h265", "wb") as f:
             while True:
-                (
-                    head,
-                    version,
-                    session,
-                    sequence_number,
-                    msgid,
-                    len_data,
-                ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
-                print(head, version, session, sequence_number, msgid, len_data)
-                packet = self.receive_with_timeout(len_data)
-
-                print("Received ", len(packet), " from ", len_data)
-
-                # Unpack
-                ( data_type, ) = struct.unpack(">I", packet[:4])
-                if data_type == 0x1fc or data_type == 0x1fe:
-                    ( media, fps, w, h, date_time, length ) = struct.unpack(
-                        "BBBBII", packet[4:16])
-                elif data_type == 0x1fd:
-                    ( length, ) = struct.unpack("I", packet[4:8])
-                elif data_type == 0x1fa:
-                    ( media, samp_rate, length ) = struct.unpack("BBH", packet[4:8])
-                elif data_type == 0x1f9:
-                    ( media, n, length ) = struct.unpack("BBH", packet[4:8])
-                else:
-                    raise ValueError(data_type)
-                print(length)
-
+                packet = self.reassemble_bin_recv()
+                print(len(packet))
                 f.write(packet)
                 #print(head, version, session, sequence_number, msgid)
 
