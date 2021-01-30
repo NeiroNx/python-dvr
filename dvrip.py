@@ -91,7 +91,7 @@ class DVRIPCam(object):
         self.socket.close()
         self.socket = None
 
-    def receive_json(self, length):
+    def receive_with_timeout(self, length):
         received = 0
         buf = bytearray()
         start_time = time.time()
@@ -104,14 +104,20 @@ class DVRIPCam(object):
                 break
             elapsed_time = time.time() - start_time
             if elapsed_time > self.timeout:
-                return {}
+                return None
+        return buf
+
+    def receive_json(self, length):
+        data = self.receive_with_timeout(length)
+        if data is None:
+            return {}
 
         self.packet_count += 1
-        self.logger.debug("<= %s", buf)
-        reply = json.loads(buf[:-2])
+        self.logger.debug("<= %s", data)
+        reply = json.loads(data[:-2])
         return reply
 
-    def send(self, msg, data):
+    def send(self, msg, data, wait_response=True):
         if self.socket == None:
             return {"Ret": 101}
         # self.busy.wait()
@@ -133,18 +139,19 @@ class DVRIPCam(object):
         )
         self.logger.debug("=> %s", pkt)
         self.socket.send(pkt)
-        reply = {"Ret": 101}
-        (
-            head,
-            version,
-            self.session,
-            sequence_number,
-            msgid,
-            len_data,
-        ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
-        reply = self.receive_json(len_data)
-        self.busy.release()
-        return reply
+        if wait_response:
+            reply = {"Ret": 101}
+            (
+                head,
+                version,
+                self.session,
+                sequence_number,
+                msgid,
+                len_data,
+            ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
+            reply = self.receive_json(len_data)
+            self.busy.release()
+            return reply
 
     def sofia_hash(self, password):
         md5 = hashlib.md5(bytes(password, "utf-8")).digest()
@@ -402,7 +409,9 @@ class DVRIPCam(object):
         if not vprint:
             vprint = lambda x: print(x)
 
-        data = self.set_command("OPSystemUpgrade", {"Action": "Start", "Type": "System"}, 0x5F0)
+        data = self.set_command(
+            "OPSystemUpgrade", {"Action": "Start", "Type": "System"}, 0x5F0
+        )
         if data["Ret"] not in self.OK_CODES:
             return data
 
@@ -450,3 +459,60 @@ class DVRIPCam(object):
                 self.socket.close()
                 return data
             vprint(f"Upgraded {data['Ret']}%")
+
+    def monitor(self, stream="Main"):
+        params = {
+            "Channel": 0,
+            "CombinMode": "NONE",
+            "StreamType": stream,
+            "TransMode": "TCP",
+        }
+        data = self.set_command("OPMonitor", {"Action": "Claim", "Parameter": params})
+        if data["Ret"] not in self.OK_CODES:
+            return data
+        print("1->", data)
+
+        self.send(
+            1410,
+            {
+                "Name": "OPMonitor",
+                "SessionID": "0x%08X" % self.session,
+                "OPMonitor": {"Action": "Start", "Parameter": params},
+            },
+            wait_response=False,
+        )
+
+        with open("datacam", "wb") as f:
+            while True:
+                (
+                    head,
+                    version,
+                    session,
+                    sequence_number,
+                    msgid,
+                    len_data,
+                ) = struct.unpack("BB2xII2xHI", self.socket.recv(20))
+                print(head, version, session, sequence_number, msgid, len_data)
+                packet = self.receive_with_timeout(len_data)
+
+                print("Received ", len(packet), " from ", len_data)
+
+                # Unpack
+                ( data_type, ) = struct.unpack(">I", packet[:4])
+                if data_type == 0x1fc or data_type == 0x1fe:
+                    ( media, fps, w, h, date_time, length ) = struct.unpack(
+                        "BBBBII", packet[4:16])
+                elif data_type == 0x1fd:
+                    ( length, ) = struct.unpack("I", packet[4:8])
+                elif data_type == 0x1fa:
+                    ( media, samp_rate, length ) = struct.unpack("BBH", packet[4:8])
+                elif data_type == 0x1f9:
+                    ( media, n, length ) = struct.unpack("BBH", packet[4:8])
+                else:
+                    raise ValueError(data_type)
+                print(length)
+
+                f.write(packet)
+                #print(head, version, session, sequence_number, msgid)
+
+        return data

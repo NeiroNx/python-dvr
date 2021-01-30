@@ -344,8 +344,8 @@ colors = cam.get_info("AVEnc.VideoColor.[0]")
 cam.set_info("Camera.Param.[0]", { "IrcutSwap" : 0 })
 
 # Change WDR settings
-WDR = 1  # 1 to enable or 0 to disable
-cam.set_info("Camera.ParamEx.[0]", { "BroadTrends" : { "AutoGain" : WDR } })
+WDR_mode = True
+cam.set_info("Camera.ParamEx.[0]", { "BroadTrends" : { "AutoGain" : int(WDR_mode) } })
 
 # Get network settings
 net = cam.get_info("NetWork.NetCommon")

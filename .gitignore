@@ -1,1 +1,3 @@
 *.pyc
+*.old
+.DS_Store
