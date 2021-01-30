@@ -10,6 +10,7 @@ from datetime import *
 import re
 import time
 import logging
+import datetime
 
 
 class DVRIPCam(object):
@@ -460,8 +461,35 @@ class DVRIPCam(object):
                 return data
             vprint(f"Upgraded {data['Ret']}%")
 
+    def reassemble_bin_payload(self, metadata={}):
+        def internal_to_type(data_type, value):
+            if data_type == 0x1FC or data_type == 0x1FD:
+                if value == 1:
+                    return "mpeg4"
+                elif value == 2:
+                    return "h264"
+                elif value == 3:
+                    return "h265"
+            elif data_type == 0x1F9:
+                if value == 1 or value == 6:
+                    return "info"
+            elif data_type == 0x1FA:
+                if value == 0xE:
+                    return "g711a"
+            elif data_type == 0x1FE and value == 0:
+                return "jpeg"
+            return None
 
-    def reassemble_bin_payload(self):
+        def internal_to_datetime(value):
+            print(value)
+            second = value & 0x3f
+            minute = (value & 0xfc0) >> 6
+            hour = (value & 0x1f000) >> 12
+            day = (value & 0x3e0000) >> 17
+            month = (value & 0x3c00000) >> 22
+            year = ((value & 0xfc000000) >> 26) + 2000
+            return datetime.datetime(year, month, day, hour, minute, second)
+
         length = 0
         buf = bytearray()
         start_time = time.time()
@@ -481,52 +509,63 @@ class DVRIPCam(object):
             packet = self.receive_with_timeout(len_data)
             frame_len = 0
             if length == 0:
-                # Unpack
+                media = None
                 frame_len = 8
-                ( data_type, ) = struct.unpack(">I", packet[:4])
-                if data_type == 0x1fc or data_type == 0x1fe:
+                (data_type,) = struct.unpack(">I", packet[:4])
+                if data_type == 0x1FC or data_type == 0x1FE:
                     frame_len = 16
-                    ( media, fps, w, h, date_time, length ) = struct.unpack(
-                        "BBBBII", packet[4:frame_len])
-                elif data_type == 0x1fd:
-                    ( length, ) = struct.unpack("I", packet[4:frame_len])
-                elif data_type == 0x1fa:
-                    ( media, samp_rate, length ) = struct.unpack("BBH",
-                                                                 packet[4:frame_len])
-                elif data_type == 0x1f9:
-                    ( media, n, length ) = struct.unpack("BBH",
-                                                         packet[4:frame_len])
+                    (
+                        media,
+                        metadata["fps"],
+                        w,
+                        h,
+                        dt,
+                        length,
+                    ) = struct.unpack("BBBBII", packet[4:frame_len])
+                    metadata["width"] = w * 8
+                    metadata["height"] = h * 8
+                    metadata["datetime"] = internal_to_datetime(dt)
+                    if data_type == 0x1FC:
+                        metadata["frame"] = "I"
+                elif data_type == 0x1FD:
+                    (length,) = struct.unpack("I", packet[4:frame_len])
+                    metadata["frame"] = "P"
+                elif data_type == 0x1FA:
+                    (media, samp_rate, length) = struct.unpack(
+                        "BBH", packet[4:frame_len]
+                    )
+                elif data_type == 0x1F9:
+                    (media, n, length) = struct.unpack("BBH", packet[4:frame_len])
                 # special case of JPEG shapshots
-                elif data_type == 0xffd8ffe0:
+                elif data_type == 0xFFD8FFE0:
                     return packet
                 else:
-                    print(hex(data_type))
                     raise ValueError(data_type)
+                if media is not None:
+                    metadata["type"] = internal_to_type(data_type, media)
             buf.extend(packet[frame_len:])
             length -= len(packet) - frame_len
             if length == 0:
-                print("Received ", len(buf))
                 return buf
             elapsed_time = time.time() - start_time
             if elapsed_time > self.timeout:
                 return None
 
-    def snapshot(self, channel = 0):
+    def snapshot(self, channel=0):
         command = "OPSNAP"
         self.send(
             self.QCODES[command],
             {
                 "Name": command,
                 "SessionID": "0x%08X" % self.session,
-                command: {"Channel": channel}
+                command: {"Channel": channel},
             },
             wait_response=False,
         )
         packet = self.reassemble_bin_payload()
         return packet
 
-
-    def monitor(self, stream="Main"):
+    def start_monitor(self, frame_callback, user={}, stream="Main"):
         params = {
             "Channel": 0,
             "CombinMode": "NONE",
@@ -546,12 +585,11 @@ class DVRIPCam(object):
             },
             wait_response=False,
         )
+        self.monitoring = True
+        while self.monitoring:
+            meta = {}
+            frame = self.reassemble_bin_payload(meta)
+            frame_callback(frame, meta, user)
 
-        with open("datacam.h265", "wb") as f:
-            while True:
-                packet = self.reassemble_bin_payload()
-                print(len(packet))
-                f.write(packet)
-                #print(head, version, session, sequence_number, msgid)
-
-        return data
+    def stop_monitor(self):
+        self.monitoring = False

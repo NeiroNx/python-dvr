@@ -359,6 +359,48 @@ dhcpst[0]['Enable'] = True
 cam.set_info("NetWork.NetDHCP", dhcpst)
 ```
 
+## Get JPEG snapshot
+
+```python
+with open("snap.jpg", "wb") as f:
+    f.write(cam.snapshot())
+```
+
+## Get video/audio bitstream
+
+Video-only writing to file (using simple lambda):
+
+```python
+with open("datastream.h265", "wb") as f:
+    cam.start_monitor(lambda frame, meta: f.write(frame))
+```
+
+Writing datastream with additional filtering (capture first 100 frames):
+
+```python
+class State:
+    def __init__(self):
+        self.counter = 0
+
+    def count(self):
+        return self.counter
+
+    def inc(self):
+        self.counter += 1
+
+with open("datastream.h265", "wb") as f:
+    state = State()
+    def receiver(frame, meta, state):
+        if 'frame' in meta:
+            f.write(frame)
+            state.inc()
+            print(state.count())
+            if state.count() == 100:
+                cam.stop_monitor()
+
+    cam.start_monitor(receiver, state)
+```
+
 ## Set camera title
 
 ```python
