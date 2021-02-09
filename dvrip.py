@@ -10,7 +10,6 @@ from datetime import *
 import re
 import time
 import logging
-import datetime
 
 
 class DVRIPCam(object):
@@ -201,7 +200,7 @@ class DVRIPCam(object):
             return []
 
     def addGroup(self,name,comment="",auth=None):
-        data = self.set(
+        data = self.set_command(
             self.QCODES["AddGroup"],
             "Group",
             {
@@ -254,7 +253,7 @@ class DVRIPCam(object):
             print(f'Group "{group}" not found!')
             return False
         g = g[0]
-        data = self.set(
+        data = self.set_command(
             self.QCODES["AddUser"],
             "User",
             {
@@ -354,7 +353,7 @@ class DVRIPCam(object):
         return True
 
     def reboot(self):
-        self.set(self.QCODES["OPMachine"], "OPMachine", {"Action": "Reboot"})
+        self.set_command(self.QCODES["OPMachine"], "OPMachine", {"Action": "Reboot"})
         self.close()
 
     def setAlarm(self, func):
@@ -407,14 +406,14 @@ class DVRIPCam(object):
         self.alive.start()
 
     def keyDown(self, key):
-        self.set(
+        self.set_command(
             self.QCODES["OPNetKeyboard"],
             "OPNetKeyboard",
             {"Status": "KeyDown", "Value": key},
         )
 
     def keyUp(self, key):
-        self.set(
+        self.set_command(
             self.QCODES["OPNetKeyboard"],
             "OPNetKeyboard",
             {"Status": "KeyUp", "Value": key},
@@ -464,14 +463,14 @@ class DVRIPCam(object):
             "Step": step,
             "Tour": 1 if "Tour" in cmd else 0,
         }
-        return self.set(
+        return self.set_command(
             self.QCODES["OPPTZControl"],
             "OPPTZControl",
             {"Command": cmd, "Parameter": ptz_param},
         )
 
     def set_info(self, command, data):
-        return self.set(1040, command, data)
+        return self.set_command(1040, command, data)
 
     def set_command(self, command, data, code=None):
         if not code:
@@ -626,7 +625,6 @@ class DVRIPCam(object):
             return None
 
         def internal_to_datetime(value):
-            print(value)
             second = value & 0x3f
             minute = (value & 0xfc0) >> 6
             hour = (value & 0x1f000) >> 12
@@ -650,7 +648,6 @@ class DVRIPCam(object):
                 msgid,
                 len_data,
             ) = struct.unpack("BB2xIIBBHI", self.socket.recv(20))
-            print(head, version, session, sequence_number, total, cur, msgid, len_data)
             packet = self.receive_with_timeout(len_data)
             frame_len = 0
             if length == 0:
