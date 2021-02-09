@@ -476,6 +476,9 @@ class DVRIPCam(object):
         if not code:
             code = self.QCODES[command]
 
+    def set_command(self, command, data, code=None):
+        if not code:
+            code = self.QCODES[command]
         return self.send(
             code, {"Name": command, "SessionID": "0x%08X" % self.session, command: data}
         )
