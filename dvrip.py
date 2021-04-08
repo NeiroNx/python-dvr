@@ -10,6 +10,8 @@ from re import compile
 import time
 import logging
 
+class SomethingIsWrongWithCamera(Exception):
+    pass
 
 class DVRIPCam(object):
     DATE_FORMAT = "%Y-%m-%d %H:%M:%S"
@@ -105,21 +107,24 @@ class DVRIPCam(object):
         self.logger.addHandler(ch)
 
     def connect(self, timeout=10):
-        if self.proto == "tcp":
-            self.socket_send = self.tcp_socket_send
-            self.socket_recv = self.tcp_socket_recv
-            self.socket = socket(AF_INET, SOCK_STREAM)
-            self.socket.connect((self.ip, self.port))
-        elif self.proto == "udp":
-            self.socket_send = self.udp_socket_send
-            self.socket_recv = self.udp_socket_recv
-            self.socket = socket(AF_INET, SOCK_DGRAM)
-        else:
-            raise f"Unsupported protocol {self.proto}"
+        try:
+            if self.proto == "tcp":
+                self.socket_send = self.tcp_socket_send
+                self.socket_recv = self.tcp_socket_recv
+                self.socket = socket(AF_INET, SOCK_STREAM)
+                self.socket.connect((self.ip, self.port))
+            elif self.proto == "udp":
+                self.socket_send = self.udp_socket_send
+                self.socket_recv = self.udp_socket_recv
+                self.socket = socket(AF_INET, SOCK_DGRAM)
+            else:
+                raise f"Unsupported protocol {self.proto}"
 
-        # it's important to extend timeout for upgrade procedure
-        self.timeout = timeout
-        self.socket.settimeout(timeout)
+            # it's important to extend timeout for upgrade procedure
+            self.timeout = timeout
+            self.socket.settimeout(timeout)
+        except OSError:
+            raise SomethingIsWrongWithCamera('Cannot connect to camera')
 
     def close(self):
         try:
@@ -463,6 +468,7 @@ class DVRIPCam(object):
             self.close()
             return
         self.alive = threading.Timer(self.alive_time, self.keep_alive)
+        self.alive.daemon = True
         self.alive.start()
 
     def keyDown(self, key):

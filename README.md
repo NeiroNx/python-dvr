@@ -535,6 +535,14 @@ print(cam.get_upgrade_info())
 cam.upgrade("General_HZXM_IPC_HI3516CV300_50H20L_AE_S38_V4.03.R12.Nat.OnvifS.HIK.20181126_ALL.bin")
 ```
 
+## Monitor Script
+
+This script will persistently attempt to connect to camera at `CAMERA_IP`, will create a directory named `CAMERA_NAME` in `FILE_PATH` and start writing separate video and audio streams in files chunked in 10-minute clips, arranged in folders structured as `%Y/%m/%d`. It will also log what it does.
+
+```sh
+./monitor.py <CAMERA_IP> <CAMERA_NAME> <FILE_PATH>
+```
+
 ## Troubleshooting
 
 ```python
